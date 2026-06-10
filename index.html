@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Analisis Pertubuhan TIER – BE2026 | PERKHIDMATAN HARTANAH DAN SUBSEKTOR RUNCIT</title>
+<title>Analisis Pertubuhan TIER – BE2026 | PERKHIDMATAN HARTANAH & SUBSEKTOR RUNCIT/UHH</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -151,6 +151,7 @@ table#tier-table tr:hover td{background:#f5f8ff}
     <span style="font-size:.78rem;color:var(--muted)">📡 Sumber data: Google Sheet <strong>Database TIER</strong> &amp; <strong>Data Pentadbiran</strong> (dimuat automatik)</span>
     <div style="display:flex;gap:8px">
       <button class="btn" onclick="loadAll()">⟳ Muat Semula</button>
+      <button class="btn btn-ghost" onclick="toggleAudit()">🔍 Audit Nilai</button>
       <button class="btn btn-ghost" onclick="loadDemo()">📊 Demo Data</button>
     </div>
   </div>
@@ -167,6 +168,11 @@ table#tier-table tr:hover td{background:#f5f8ff}
 </div>
 
 <div class="main" id="dashboard" style="display:none">
+
+  <div class="card" id="audit-card" style="display:none">
+    <div class="card-head">🔍 Audit Nilai Ringgit — Bandingkan Dengan Google Sheet <span style="font-weight:400;font-size:.72rem;color:var(--muted)">Lajur "Asal (Sheet)" = teks mentah CSV · "Dibaca HTML" = nilai selepas tafsiran. Kedua-dua MESTI sama digit. Jika tidak sama, laporkan.</span></div>
+    <div class="card-body" style="overflow-x:auto" id="audit-body"></div>
+  </div>
 
   <div class="sec-title">
     <h2>KPI Utama</h2><div class="pill" id="pill-filter">Keseluruhan</div><div class="sec-divider"></div>
@@ -250,6 +256,43 @@ let adminMetrics = []; // senarai metrik admin yang dikesan
 let compareMetric = 'hasil'; // metrik dipilih untuk jadual perbandingan per pertubuhan
 let dtTable = null;
 let charts = {};
+let auditRaw = { headers: [], rows: [] };
+
+// ════════ AUDIT NILAI ════════
+function toggleAudit(){
+  const el=document.getElementById('audit-card');
+  if(el.style.display==='none'){ renderAudit(); el.style.display='block'; window.scrollTo({top:0,behavior:'smooth'}); }
+  else el.style.display='none';
+}
+function renderAudit(){
+  const body=document.getElementById('audit-body');
+  if(!auditRaw.rows.length){
+    body.innerHTML='<div class="info-msg">ℹ️ Tiada data mentah tersimpan (mod Demo tidak mempunyai CSV asal). Klik <strong>⟳ Muat Semula</strong> dahulu, kemudian buka semula Audit Nilai.</div>';
+    return;
+  }
+  const cols=[
+    ['Hasil/Jualan',C.HASIL],['Belanja',C.BELANJA],['Gaji',C.GAJI],['Pekerja',C.PEKERJA],['Aset',C.ASET]
+  ];
+  if(C.K5_HASIL>=0) cols.push(['K5-Hasil',C.K5_HASIL]);
+  if(C.K5_ASET>=0)  cols.push(['K5-Aset',C.K5_ASET]);
+
+  let html='<table class="dash-table"><thead><tr><th>EST ID</th>';
+  cols.forEach(([l])=>{ html+='<th class="num">'+l+'<br><span style="font-size:.62rem;font-weight:400">Asal (Sheet) → Dibaca HTML</span></th>'; });
+  html+='</tr></thead><tbody>';
+  auditRaw.rows.forEach(r=>{
+    html+='<tr><td>'+String(r[C.EST_ID]||'').trim()+'</td>';
+    cols.forEach(([l,ci])=>{
+      const rawV=String(r[ci]==null?'':r[ci]).trim();
+      const parsed=parseNum(rawV);
+      const sama = rawV==='' ? true : null; // kosong = OK
+      html+='<td class="num"><span style="color:var(--muted)">'+(rawV||'(kosong)')+'</span><br><strong>'+
+        (rawV===''?'—':parsed.toLocaleString('ms-MY',{maximumFractionDigits:2}))+'</strong></td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  body.innerHTML=html;
+}
 
 const METRIK_5 = [
   {key:'hasil',   label:'Hasil/Jualan'},
@@ -264,17 +307,34 @@ function normID(v){ return String(v==null?'':v).trim().replace(/\s+/g,'').replac
 
 function parseNum(v){
   if(v==null) return 0;
-  let s = String(v).trim().replace(/RM/ig,'').replace(/\s+/g,'');
-  if(!s || s==='-') return 0;
-  s = s.replace(/,/g,'');
-  const dots = (s.match(/\./g)||[]).length;
-  if(dots>1){ s = s.replace(/\./g,''); }                 // 9.384.611.613 → titik = pemisah ribu
+  let s = String(v).trim();
+  if(!s||s==='-'||s==='—') return 0;
+  let neg = false;
+  if(/^\(.*\)$/.test(s)){ neg=true; s=s.slice(1,-1); }       // (1.234) = negatif (format perakaunan)
+  s = s.replace(/RM/ig,'').replace(/[^\d.,\-]/g,'');          // buang RM, spasi & simbol lain
+  if(s.startsWith('-')){ neg=true; }
+  s = s.replace(/-/g,'');
+  if(!s) return 0;
+
+  const hasDot = s.includes('.'), hasComma = s.includes(',');
+  if(hasDot && hasComma){
+    // Format campuran: pemisah yang muncul TERAKHIR ialah titik perpuluhan
+    if(s.lastIndexOf(',') > s.lastIndexOf('.')){ s=s.replace(/\./g,'').replace(',','.'); } // 1.234,56 → 1234.56
+    else { s=s.replace(/,/g,''); }                                                          // 1,234.56 → 1234.56
+  } else if(hasComma){
+    const parts=s.split(',');
+    if(parts.length===2 && parts[1].length<=2){ s=parts[0]+'.'+parts[1]; }  // 1234,56 → perpuluhan
+    else { s=s.replace(/,/g,''); }                                          // koma = pemisah ribu
+  }
+  const dots=(s.match(/\./g)||[]).length;
+  if(dots>1){ s=s.replace(/\./g,''); }                        // 9.384.611.613 → titik = pemisah ribu
   else if(dots===1){
-    const parts = s.split('.');
-    if(parts[1].length===3){ s = parts.join(''); }       // 5.179 → 5179 (3 digit = pemisah ribu)
-  }                                                       // .88 / .1 → kekal perpuluhan
-  const n = parseFloat(s);
-  return isNaN(n)?0:n;
+    const parts=s.split('.');
+    if(parts[1].length===3){ s=parts.join(''); }              // 5.179 → 5179 (3 digit = pemisah ribu)
+  }                                                            // .88 / .1 → kekal perpuluhan
+  const n=parseFloat(s);
+  if(isNaN(n)) return 0;
+  return neg ? -n : n;
 }
 
 function fmt(n){ if(n==null||isNaN(n))return'0'; return Number(n).toLocaleString('ms-MY'); }
@@ -400,6 +460,7 @@ async function loadAll(){
     const raw = parseCSV(await res.text());
     if(raw.length<2) throw new Error('Tiada data dalam sheet TIER');
     detectColumns(raw[0]);
+    auditRaw = { headers: raw[0], rows: raw.slice(1, 16) }; // 15 baris pertama untuk audit
     allRows = raw.slice(1).map(rowToObj).filter(o=>o.id);
 
     adminMap=null; adminMetrics=[];
