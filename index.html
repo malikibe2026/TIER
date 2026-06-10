@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Analisis Pertubuhan TIER – BE2026 | BPAH/UHH</title>
+<title>Analisis Pertubuhan TIER – BE2026 | PERKHIDMATAN HARTANAH DAN SUBSEKTOR RUNCIT</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -162,6 +162,8 @@ table#tier-table tr:hover td{background:#f5f8ff}
   <select id="f-penyelia" onchange="applyFilters()"><option value="">Semua Penyelia</option></select>
   <select id="f-fe" onchange="applyFilters()"><option value="">Semua FE</option></select>
   <select id="f-fasa" onchange="applyFilters()"><option value="">Semua Fasa</option></select>
+  <select id="f-subsektor" onchange="applyFilters()"><option value="">Semua Survei</option></select>
+  <select id="f-atasnama" onchange="applyFilters()"><option value="">Semua Atas Nama</option></select>
 </div>
 
 <div class="main" id="dashboard" style="display:none">
@@ -418,36 +420,64 @@ async function loadAll(){
   }
 }
 
-// ════════ DATA PENTADBIRAN ════════
+// ════════ DATA PENTADBIRAN (SSM / KWSP / LHDN → 5 variable) ════════
 function buildAdminMap(raw){
   if(raw.length<2) return;
   const headers = raw[0].map(h=>String(h||'').trim());
-  const H = headers.map(h=>h.toUpperCase().replace(/[\s_\/]+/g,''));
+  const H = headers.map(h=>h.toUpperCase().replace(/[\s_\/\-]+/g,''));
   let idCol = H.findIndex(h=>h.includes('ESTABLISHMENTID')||h==='ESTID');
   if(idCol<0) idCol = H.findIndex(h=>h.includes('ESTABLISHMENT')||h.includes('NEWSA')||h==='ID');
   if(idCol<0) idCol = 0;
 
-  const METRIC_DEFS = [
-    {key:'hasil',   label:'Hasil/Jualan', pats:['HASIL','JUALAN','SALES','REVENUE','PEROLEHAN']},
-    {key:'belanja', label:'Belanja',      pats:['BELANJA','EXPENS','PERBELANJAAN']},
-    {key:'gaji',    label:'Gaji',         pats:['GAJI','SALAR','UPAH','WAGE']},
-    {key:'pekerja', label:'Pekerja',      pats:['PEKERJA','EMPLOY','WORKER']},
-    {key:'aset',    label:'Aset',         pats:['ASET','ASSET']}
-  ];
-  adminMetrics = [];
-  METRIC_DEFS.forEach(m=>{
-    const i = H.findIndex(h=>m.pats.some(p=>h.includes(p)));
-    if(i>=0) adminMetrics.push({key:m.key,label:m.label,col:i,header:headers[i]});
-  });
+  function col(...pats){ for(const p of pats){const i=H.findIndex(h=>h.includes(p)); if(i>=0)return i;} return -1; }
+  const cTahun   = col('SSMTAHUN');
+  const cRevSSM  = col('SSMREVENUE');
+  const cAset    = col('SSMASETTETAP','SSMASET');
+  const cUntungB = col('SSMUNTUNGBCUKAI','UNTUNGBCUKAI');
+  const cPekKWSP = col('KWSPPEKERJA');
+  const cRevLHDN = col('LHDNTURNOVER');
+  const cPekLHDN = col('LHDNPEKERJA');
 
-  adminMap = new Map();
+  // Pemetaan 5 variable:
+  //  Hasil/Jualan ← SSM Revenue (fallback: LHDN Turnover)
+  //  Belanja      ← anggaran: SSM Revenue − SSM Untung B/Cukai
+  //  Gaji         ← TIADA sumber pentadbiran (—)
+  //  Pekerja      ← KWSP Pekerja (fallback: LHDN Pekerja)
+  //  Aset         ← SSM Aset Tetap
+  adminMetrics=[];
+  if(cRevSSM>=0||cRevLHDN>=0) adminMetrics.push({key:'hasil',label:'Hasil/Jualan'});
+  if(cRevSSM>=0&&cUntungB>=0) adminMetrics.push({key:'belanja',label:'Belanja'});
+  if(cPekKWSP>=0||cPekLHDN>=0) adminMetrics.push({key:'pekerja',label:'Pekerja'});
+  if(cAset>=0) adminMetrics.push({key:'aset',label:'Aset'});
+
+  adminMap=new Map();
   raw.slice(1).forEach(r=>{
-    const id = normID(r[idCol]); if(!id) return;
-    const o = {};
-    adminMetrics.forEach(m=>{ o[m.key] = parseNum(r[m.col]); });
-    adminMap.set(id,o);
+    const id=normID(r[idCol]); if(!id) return;
+    const revS=cRevSSM>=0?numOrNull(r[cRevSSM]):null;
+    const revL=cRevLHDN>=0?numOrNull(r[cRevLHDN]):null;
+    const unB =cUntungB>=0?numOrNull(r[cUntungB]):null;
+    const pkK =cPekKWSP>=0?numOrNull(r[cPekKWSP]):null;
+    const pkL =cPekLHDN>=0?numOrNull(r[cPekLHDN]):null;
+    adminMap.set(id,{
+      tahun:   cTahun>=0?String(r[cTahun]||'').trim():'',
+      hasil:   revS!=null?revS:revL,
+      belanja: (revS!=null&&unB!=null)?revS-unB:null,
+      gaji:    null,
+      pekerja: pkK!=null?pkK:pkL,
+      aset:    cAset>=0?numOrNull(r[cAset]):null,
+      srcHasil:   revS!=null?'SSM':(revL!=null?'LHDN':''),
+      srcPekerja: pkK!=null?'KWSP':(pkL!=null?'LHDN':'')
+    });
   });
   window._adminHeaders = headers;
+}
+function adminSrc(ad, key){
+  if(!ad) return '';
+  if(key==='hasil')   return ad.srcHasil+(ad.tahun?' '+ad.tahun:'');
+  if(key==='pekerja') return ad.srcPekerja;
+  if(key==='belanja') return 'Anggaran SSM'+(ad.tahun?' '+ad.tahun:'');
+  if(key==='aset')    return 'SSM'+(ad.tahun?' '+ad.tahun:'');
+  return '';
 }
 
 // ════════ DEMO ════════
@@ -459,7 +489,7 @@ function loadDemo(){
     const nm=['Dipa Chellamuthu','Nursyuzalawaty binti Mohd Sohip','Ahmad Maliki bin Abdul Razik','Siti Suhaina binti Abdul Wahab','Ayu Alina Suria binti Abd Jalal','Mohd Khairul bin Mohd Nordin','Hazim bin Kamaruddin','Siti Mursyidah binti Mohd Salleh'];
     const tiers=['Diamond','Gold','Gold','Gold','Silver','Silver'];
     allRows=[]; adminMap=new Map();
-    adminMetrics=[{key:'hasil',label:'Hasil/Jualan'},{key:'pekerja',label:'Pekerja'},{key:'gaji',label:'Gaji'}];
+    adminMetrics=[{key:'hasil',label:'Hasil/Jualan'},{key:'belanja',label:'Belanja'},{key:'pekerja',label:'Pekerja'},{key:'aset',label:'Aset'}];
     for(let i=0;i<124;i++){
       const t=tiers[i%tiers.length];
       const hasil=(t==='Diamond'?5e9:t==='Gold'?8e8:1.2e8)*(0.5+Math.random());
@@ -480,7 +510,10 @@ function loadDemo(){
           aset:hasil*1.4*(0.7+Math.random()*0.6)
         } : {hasil:null,belanja:null,gaji:null,pekerja:null,aset:null} };
       allRows.push(o);
-      adminMap.set(o.id,{ hasil:hasil*(0.6+Math.random()*0.9), pekerja:Math.round(pekerja*(0.5+Math.random())), gaji:hasil*0.08*(0.7+Math.random()*0.6) });
+      adminMap.set(o.id,{ tahun:'2024',
+        hasil:hasil*(0.6+Math.random()*0.9), belanja:hasil*0.7*(0.6+Math.random()*0.8),
+        gaji:null, pekerja:Math.round(pekerja*(0.5+Math.random())), aset:hasil*1.4*(0.6+Math.random()*0.8),
+        srcHasil:'SSM', srcPekerja:'KWSP' });
     }
     C.K7_RESP=99; C.K7_REKOD=99; C.K5_HASIL=99; C.K5_BELANJA=99; C.K5_GAJI=99; C.K5_PEKERJA=99; C.K5_ASET=99; // aktifkan seksyen dalam demo
     initFilters();
@@ -504,6 +537,8 @@ function initFilters(){
   fill('f-penyelia', allRows.map(r=>r.penyelia));
   fill('f-fe', allRows.map(r=>r.fe));
   fill('f-fasa', allRows.map(r=>r.fasa));
+  fill('f-subsektor', allRows.map(r=>r.subsektor||'—'));
+  fill('f-atasnama', allRows.map(r=>r.atasNama));
   document.getElementById('filter-bar').style.display='flex';
 }
 
@@ -512,8 +547,10 @@ function applyFilters(){
   const p=document.getElementById('f-penyelia').value;
   const f=document.getElementById('f-fe').value;
   const fs=document.getElementById('f-fasa').value;
-  const rows=allRows.filter(r=>(!t||r.tier===t)&&(!p||r.penyelia===p)&&(!f||r.fe===f)&&(!fs||r.fasa===fs));
-  const lbl=[t,p,f,fs].filter(Boolean).join(' · ')||'Keseluruhan';
+  const sb=document.getElementById('f-subsektor').value;
+  const an=document.getElementById('f-atasnama').value;
+  const rows=allRows.filter(r=>(!t||r.tier===t)&&(!p||r.penyelia===p)&&(!f||r.fe===f)&&(!fs||r.fasa===fs)&&(!sb||(r.subsektor||'—')===sb)&&(!an||r.atasNama===an));
+  const lbl=[t,p,f,fs,sb,an].filter(Boolean).join(' · ')||'Keseluruhan';
   document.getElementById('pill-filter').textContent=lbl;
   renderAll(rows,true);
 }
@@ -715,10 +752,12 @@ function renderCompare(rows){
     const sK5=sub.reduce((a,r)=>a+r.k5[m.key],0);
     const sBE=sub.reduce((a,r)=>a+r[m.key],0);
     const adminHas=adaAdmin&&adminMetrics.some(x=>x.key===m.key);
-    const subA=adminHas?sub.filter(r=>adminMap.has(r.id)):[];
-    const sAD=subA.reduce((a,r)=>a+(adminMap.get(r.id)[m.key]||0),0);
+    const subA=adminHas?sub.filter(r=>adminMap.has(r.id)&&adminMap.get(r.id)[m.key]!=null):[];
+    const sAD=subA.reduce((a,r)=>a+adminMap.get(r.id)[m.key],0);
+    const sBEA=subA.reduce((a,r)=>a+r[m.key],0);
+    const sK5A=subA.reduce((a,r)=>a+r.k5[m.key],0);
     const fmtV=m.key==='pekerja'?fmt:fmtRM;
-    const pAD=(adminHas&&sAD)?((sK5-sAD)/sAD)*100:null;
+    const pAD=(adminHas&&sAD)?((sK5A-sAD)/sAD)*100:null;
     const pBE=sBE?((sK5-sBE)/sBE)*100:null;
     aggHTML+='<tr><td><strong>'+m.label+'</strong></td><td class="num">'+fmt(n)+'</td><td class="num">'+(n?fmtV(sK5):'—')+'</td><td class="num">'+(adminHas&&subA.length?fmtV(sAD):'—')+'</td><td class="num">'+(n?fmtV(sBE):'—')+'</td><td class="num">'+bezaBadge(pAD)+'</td><td class="num">'+bezaBadge(pBE)+'</td></tr>';
   });
@@ -731,16 +770,18 @@ function renderCompare(rows){
   const detail=rows.map(r=>{
     const k5v=r.k5[compareMetric];
     const bev=r[compareMetric];
-    const adv=adminHasSel&&adminMap.has(r.id)?adminMap.get(r.id)[compareMetric]:null;
+    const ad=adminHasSel&&adminMap.has(r.id)?adminMap.get(r.id):null;
+    const adv=ad?ad[compareMetric]:null;
+    const src=adv!=null?adminSrc(ad,compareMetric):'';
     const pBE=(k5v!=null&&bev)?((k5v-bev)/bev)*100:null;
     const pAD=(k5v!=null&&adv)?((k5v-adv)/adv)*100:null;
-    return {r,k5v,bev,adv,pBE,pAD,sortKey:pBE!=null?Math.abs(pBE):-1};
+    return {r,k5v,bev,adv,src,pBE,pAD,sortKey:pBE!=null?Math.abs(pBE):-1};
   }).sort((a,b)=>b.sortKey-a.sortKey);
 
   const detailHTML=detail.map(d=>
     '<tr><td>'+d.r.idRaw+'</td><td>'+(d.r.syarikat.length>32?d.r.syarikat.slice(0,30)+'…':d.r.syarikat)+'</td><td>'+tierBadge(d.r.tier)+'</td>'+
     '<td class="num">'+(d.k5v!=null?fmtSel(d.k5v):'<span class="badge badge-silver">Belum</span>')+'</td>'+
-    '<td class="num">'+(d.adv!=null?fmtSel(d.adv):'—')+'</td>'+
+    '<td class="num">'+(d.adv!=null?fmtSel(d.adv)+' <span style="font-size:.6rem;color:var(--muted)">'+d.src+'</span>':'—')+'</td>'+
     '<td class="num">'+fmtSel(d.bev)+'</td>'+
     '<td class="num">'+bezaBadge(d.pAD)+'</td>'+
     '<td class="num">'+bezaBadge(d.pBE)+'</td></tr>'
@@ -754,7 +795,7 @@ function renderCompare(rows){
       '<div class="kpi-card c-blue"><div class="kpi-label">Dipadan Pentadbiran</div><div class="kpi-val">'+(adaAdmin?fmt(matched.length):'—')+'</div><div class="kpi-sub">'+(adaAdmin?pct(matched.length,rows.length)+'% via ESTABLISHMENT_ID':'Sheet pentadbiran belum dimuat')+'</div></div>'+
       '<div class="kpi-card c-gold"><div class="kpi-label">Beza K5↔BE2023 ≥ 20% ('+selLabel+')</div><div class="kpi-val">'+fmt(big)+'</div><div class="kpi-sub">Perlu semakan lanjut</div></div>'+
     '</div>'+
-    '<div class="card"><div class="card-head">📊 Agregat Mengikut Metrik <span style="font-weight:400;font-size:.72rem;color:var(--muted)">*Pentadbiran &amp; BE2023 dijumlah atas set pertubuhan yang sama (K5 ada) supaya perbandingan adil</span></div>'+
+    '<div class="card"><div class="card-head">📊 Agregat Mengikut Metrik <span style="font-weight:400;font-size:.72rem;color:var(--muted)">*Semua sumber dijumlah atas set pertubuhan yang sama (K5 &amp; Admin ada) · Pemetaan: Hasil←SSM Revenue/LHDN Turnover · Belanja←Anggaran (Revenue−Untung B/Cukai) · Pekerja←KWSP/LHDN · Aset←SSM Aset Tetap · Gaji: tiada sumber admin</span></div>'+
     '<div class="card-body" style="overflow-x:auto"><table class="dash-table">'+aggHTML+'</table></div></div>'+
     '<div class="card"><div class="card-head">⚖️ Per Pertubuhan — '+
       '<select id="sel-metric" onchange="setCompareMetric(this.value)" style="border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-family:var(--font);font-size:.78rem;margin-left:6px">'+
