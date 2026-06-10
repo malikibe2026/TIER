@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisis Pertubuhan TIER – BE2026 | BPAH/UHH</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+
+<style>
+:root {
+  --navy:#0a1628; --navy2:#0f2044; --blue:#1a4fad; --blue2:#2563eb;
+  --accent:#38bdf8; --gold:#f59e0b; --green:#10b981; --red:#ef4444;
+  --purple:#8b5cf6; --white:#fff; --bg:#f0f4fb; --card:#fff;
+  --border:#dde4f0; --text:#1e2d4a; --muted:#64748b;
+  --diamond:#7c3aed; --tgold:#d97706; --silver:#64748b;
+  --shadow:0 2px 16px rgba(10,22,40,.09); --shadow2:0 8px 32px rgba(10,22,40,.13);
+  --radius:14px; --font:'Plus Jakarta Sans',sans-serif; --mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh}
+
+.header{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 50%,#112255 100%);color:#fff;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.header-inner{position:relative;display:flex;align-items:center;justify-content:space-between;padding:22px 32px;gap:20px;flex-wrap:wrap}
+.header-logo{display:flex;align-items:center;gap:16px}
+.header-badge{width:52px;height:52px;background:linear-gradient(135deg,var(--diamond),var(--accent));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.header-title h1{font-size:1.35rem;font-weight:800;letter-spacing:.02em;line-height:1.2}
+.header-title p{font-size:.82rem;opacity:.7;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+.header-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.header-meta .survey-tag{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:4px 14px;font-size:.75rem;font-weight:600;letter-spacing:.04em}
+.header-meta .updated{font-size:.75rem;opacity:.6}
+.header-meta .updated span{font-family:var(--mono);color:var(--accent);opacity:1}
+
+.ctrl-bar{background:#fff;border-bottom:1px solid var(--border);padding:12px 32px;display:flex;flex-direction:column;gap:10px}
+.ctrl-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl-bar label{font-size:.75rem;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;min-width:190px}
+.ctrl-bar input[type=text]{border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:.78rem;font-family:var(--mono);color:var(--text);flex:1;min-width:260px;transition:border .2s}
+.ctrl-bar input:focus{outline:none;border-color:var(--blue2)}
+.btn{background:var(--blue2);color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:.83rem;font-weight:600;font-family:var(--font);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .2s,transform .1s}
+.btn:hover{background:var(--blue)}.btn:active{transform:scale(.97)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{background:var(--bg);color:var(--text)}
+
+.filter-bar{background:var(--navy2);padding:10px 32px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.filter-bar label{color:rgba(255,255,255,.6);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.filter-bar select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:6px 10px;font-size:.8rem;font-family:var(--font)}
+.filter-bar select option{background:var(--navy2);color:#fff}
+
+.main{padding:28px 32px;max-width:1600px;margin:0 auto}
+.sec-title{display:flex;align-items:center;gap:10px;margin-bottom:18px;margin-top:36px}
+.sec-title:first-child{margin-top:0}
+.sec-title h2{font-size:1rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--navy2)}
+.sec-title .pill{background:var(--blue2);color:#fff;border-radius:20px;padding:2px 10px;font-size:.7rem;font-weight:700;letter-spacing:.06em}
+.sec-divider{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);margin-left:8px}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
+.kpi-card{background:var(--card);border-radius:var(--radius);padding:22px 20px 18px;box-shadow:var(--shadow);border:1px solid var(--border);position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
+.kpi-card:hover{box-shadow:var(--shadow2);transform:translateY(-2px)}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.c-blue::after{background:var(--blue2)}
+.kpi-card.c-diamond::after{background:var(--diamond)}
+.kpi-card.c-gold::after{background:var(--tgold)}
+.kpi-card.c-silver::after{background:var(--silver)}
+.kpi-card.c-green::after{background:var(--green)}
+.kpi-card.c-accent::after{background:var(--accent)}
+.kpi-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;line-height:1.4}
+.kpi-val{font-family:var(--mono);font-size:2.1rem;font-weight:500;color:var(--navy);line-height:1}
+.kpi-sub{font-size:.72rem;color:var(--muted);margin-top:8px}
+.kpi-icon{position:absolute;right:18px;top:18px;font-size:1.5rem;opacity:.13}
+
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;margin-bottom:20px}
+.card-head{padding:16px 22px 14px;border-bottom:1px solid var(--border);font-size:.85rem;font-weight:700;color:var(--navy2);display:flex;align-items:center;gap:8px}
+.card-body{padding:18px 22px}
+table.dash-table{width:100%;border-collapse:collapse;font-size:.83rem}
+table.dash-table th{background:var(--bg);color:var(--navy2);font-weight:700;padding:10px 14px;text-align:left;font-size:.73rem;letter-spacing:.04em;text-transform:uppercase;border-bottom:2px solid var(--border)}
+table.dash-table th.num,table.dash-table td.num{text-align:right}
+table.dash-table td{padding:10px 14px;border-bottom:1px solid #f0f3fa;color:var(--text)}
+table.dash-table tr:last-child td{border-bottom:none}
+table.dash-table tr.total td{font-weight:700;background:#f5f8ff;color:var(--navy2);border-top:2px solid var(--border)}
+table.dash-table td.num{font-family:var(--mono)}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-2-1{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+@media(max-width:900px){.grid-2,.grid-2-1{grid-template-columns:1fr}}
+
+.chart-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);padding:20px;margin-bottom:20px}
+.chart-card h3{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--navy2);margin-bottom:16px}
+.chart-wrap{position:relative;height:240px}
+.chart-wrap.tall{height:340px}
+
+.badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:.68rem;font-weight:700;letter-spacing:.04em}
+.badge-diamond{background:#ede9fe;color:#5b21b6}
+.badge-gold{background:#fef3c7;color:#92400e}
+.badge-silver{background:#e2e8f0;color:#334155}
+.badge-green{background:#d1fae5;color:#065f46}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-amber{background:#fef3c7;color:#92400e}
+
+#tier-table_wrapper .dataTables_filter input{border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-family:var(--font);font-size:.82rem}
+#tier-table_wrapper .dt-buttons button{background:var(--navy2);color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.78rem;font-family:var(--font);font-weight:600;cursor:pointer;margin-right:4px}
+table#tier-table{font-size:.76rem}
+table#tier-table th{background:var(--navy2);color:#fff;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;padding:10px;white-space:nowrap}
+table#tier-table td{padding:8px 10px;border-bottom:1px solid #f0f3fa;white-space:nowrap}
+table#tier-table tr:hover td{background:#f5f8ff}
+.dataTables_paginate .paginate_button.current{background:var(--blue2)!important;color:#fff!important;border-radius:5px;border:none!important}
+
+#loading-overlay{position:fixed;inset:0;background:rgba(10,22,40,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)}
+.spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.15);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-overlay p{color:#fff;margin-top:16px;font-size:.9rem;opacity:.8}
+.err-msg{background:#fff5f5;border:1px solid #fed7d7;color:#9b2c2c;border-radius:var(--radius);padding:18px 22px;font-size:.85rem;margin-bottom:20px}
+.info-msg{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:var(--radius);padding:14px 20px;font-size:.82rem;margin-bottom:20px}
+
+@media(max-width:700px){.main{padding:16px}.header-inner{padding:16px}.ctrl-bar,.filter-bar{padding:10px 16px}.kpi-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div id="loading-overlay" style="display:none">
+  <div class="spinner"></div>
+  <p>Memuatkan data...</p>
+</div>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="header-logo">
+      <div class="header-badge">💎</div>
+      <div class="header-title">
+        <h1>ANALISIS PERTUBUHAN TIER</h1>
+        <p>Diamond · Gold · Silver &nbsp;·&nbsp; Banci Ekonomi 2026 &nbsp;·&nbsp; BPAH / UHH</p>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="survey-tag">DOSM SELANGOR</div>
+      <div class="updated">Kemaskini: <span id="last-updated">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="ctrl-bar">
+  <div class="ctrl-row">
+    <label>🔗 Sheet Database TIER (CSV)</label>
+    <input type="text" id="url-tier" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?output=csv">
+  </div>
+  <div class="ctrl-row">
+    <label>🔗 Sheet Data Pentadbiran (CSV)</label>
+    <input type="text" id="url-admin" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?gid=1470316366&amp;single=true&amp;output=csv">
+    <button class="btn" onclick="loadAll()">⟳ Muat Data</button>
+    <button class="btn btn-ghost" onclick="loadDemo()">📊 Demo Data</button>
+  </div>
+</div>
+
+<div class="filter-bar" id="filter-bar" style="display:none">
+  <label>Tapis:</label>
+  <select id="f-tier" onchange="applyFilters()"><option value="">Semua Tier</option></select>
+  <select id="f-penyelia" onchange="applyFilters()"><option value="">Semua Penyelia</option></select>
+  <select id="f-fe" onchange="applyFilters()"><option value="">Semua FE</option></select>
+  <select id="f-fasa" onchange="applyFilters()"><option value="">Semua Fasa</option></select>
+</div>
+
+<div class="main" id="dashboard" style="display:none">
+
+  <div class="sec-title">
+    <h2>KPI Utama</h2><div class="pill" id="pill-filter">Keseluruhan</div><div class="sec-divider"></div>
+  </div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="sec-title"><h2>Agihan Mengikut Penyelia &amp; FE</h2><div class="sec-divider"></div></div>
+  <div class="grid-2">
+    <div>
+      <div class="chart-card"><h3>👥 Penyelia × Tier</h3><div class="chart-wrap"><canvas id="chart-penyelia"></canvas></div></div>
+      <div class="card"><div class="card-head">📋 Ringkasan Penyelia</div><div class="card-body"><table class="dash-table" id="tbl-penyelia"></table></div></div>
+    </div>
+    <div>
+      <div class="chart-card"><h3>🍩 Komposisi Tier</h3><div class="chart-wrap"><canvas id="chart-tier"></canvas></div></div>
+      <div class="card"><div class="card-head">🧑‍💼 Ringkasan ID FE</div><div class="card-body" style="max-height:320px;overflow-y:auto"><table class="dash-table" id="tbl-fe"></table></div></div>
+    </div>
+  </div>
+
+  <div class="sec-title"><h2>Status Semasa Kerja Luar — K7</h2><div class="sec-divider"></div></div>
+  <div id="k7-section">
+    <div class="grid-2">
+      <div>
+        <div class="chart-card"><h3>🥧 K7 — Status Response</h3><div class="chart-wrap"><canvas id="chart-resp"></canvas></div></div>
+        <div class="card"><div class="card-head">📋 Ringkasan Status Response</div><div class="card-body"><table class="dash-table" id="tbl-resp"></table></div></div>
+      </div>
+      <div>
+        <div class="chart-card"><h3>🍩 K7 — Status Rekod</h3><div class="chart-wrap"><canvas id="chart-rekod"></canvas></div></div>
+        <div class="card"><div class="card-head">📋 Ringkasan Status Rekod</div><div class="card-body"><table class="dash-table" id="tbl-rekod"></table></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title"><h2>5 Prinsip — Banci Ekonomi 2023</h2><div class="sec-divider"></div></div>
+  <div class="card">
+    <div class="card-head">💰 Agregat 5 Prinsip Mengikut Tier (BE2023)</div>
+    <div class="card-body" style="overflow-x:auto"><table class="dash-table" id="tbl-prinsip"></table></div>
+  </div>
+  <div class="grid-2">
+    <div class="chart-card"><h3>📊 Top 10 Pertubuhan — Hasil/Jualan (BE2023)</h3><div class="chart-wrap tall"><canvas id="chart-top10"></canvas></div></div>
+    <div class="chart-card"><h3>📊 Agihan Pekerja (BE2023) Mengikut Tier</h3><div class="chart-wrap tall"><canvas id="chart-pekerja"></canvas></div></div>
+  </div>
+
+  <div class="sec-title"><h2>Perbandingan 3 Hala — Data Semasa (K5) vs Pentadbiran vs BE2023</h2><div class="sec-divider"></div></div>
+  <div id="admin-section">
+    <div class="info-msg">ℹ️ Masukkan URL CSV <strong>Sheet Data Pentadbiran</strong> di atas dan klik Muat Data untuk mengaktifkan perbandingan. Padanan dibuat menggunakan <strong>ESTABLISHMENT_ID</strong>.</div>
+  </div>
+
+  <div class="sec-title"><h2>Senarai Penuh Pertubuhan</h2><div class="sec-divider"></div></div>
+  <div class="card">
+    <div class="card-head">🏢 Senarai Pertubuhan TIER</div>
+    <div class="card-body" style="overflow-x:auto">
+      <table id="tier-table" class="display" style="width:100%">
+        <thead><tr>
+          <th>EST ID</th><th>Syarikat</th><th>Tier</th><th>Penyelia</th><th>ID FE</th><th>Atas Nama</th><th>Fasa</th>
+          <th>K7 Resp</th><th>K7 Rekod</th>
+          <th>Hasil/Jualan</th><th>Belanja</th><th>Gaji</th><th>Pekerja</th><th>Aset</th>
+        </tr></thead>
+        <tbody id="tier-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="no-data" style="padding:40px 32px;">
+  <div class="err-msg">⚠️ Tiada data dipaparkan. Klik <strong>Muat Data</strong> untuk memuat dari Google Sheet, atau <strong>Demo Data</strong> untuk contoh paparan.</div>
+</div>
+
+<script>
+// ════════ KONFIGURASI KOLUM (fallback index ikut sheet sebenar) ════════
+const FALLBACK = {
+  EST_ID:0, SYARIKAT:1, TIER:2, PENYELIA:3, ID_FE:4, ATAS_NAMA:5, FASA:6,
+  HASIL:19, BELANJA:20, GAJI:23, PEKERJA:24, ASET:25, SUBSEKTOR:26
+};
+let C = Object.assign({}, FALLBACK);
+
+let allRows = [];      // semua row tier (object)
+let lastRows = [];     // rows selepas filter (untuk re-render seksyen)
+let adminMap = null;   // Map EST_ID -> {metrik admin}
+let adminMetrics = []; // senarai metrik admin yang dikesan
+let compareMetric = 'hasil'; // metrik dipilih untuk jadual perbandingan per pertubuhan
+let dtTable = null;
+let charts = {};
+
+const METRIK_5 = [
+  {key:'hasil',   label:'Hasil/Jualan'},
+  {key:'belanja', label:'Belanja'},
+  {key:'gaji',    label:'Gaji'},
+  {key:'pekerja', label:'Pekerja'},
+  {key:'aset',    label:'Aset'}
+];
+
+// ════════ UTILS ════════
+function normID(v){ return String(v==null?'':v).trim().replace(/\s+/g,'').replace(/^0+(?=\d)/,''); }
+
+function parseNum(v){
+  if(v==null) return 0;
+  let s = String(v).trim().replace(/RM/ig,'').replace(/\s+/g,'');
+  if(!s || s==='-') return 0;
+  s = s.replace(/,/g,'');
+  const dots = (s.match(/\./g)||[]).length;
+  if(dots>1){ s = s.replace(/\./g,''); }                 // 9.384.611.613 → titik = pemisah ribu
+  else if(dots===1){
+    const parts = s.split('.');
+    if(parts[1].length===3){ s = parts.join(''); }       // 5.179 → 5179 (3 digit = pemisah ribu)
+  }                                                       // .88 / .1 → kekal perpuluhan
+  const n = parseFloat(s);
+  return isNaN(n)?0:n;
+}
+
+function fmt(n){ if(n==null||isNaN(n))return'0'; return Number(n).toLocaleString('ms-MY'); }
+function numOrNull(v){ const s=String(v==null?'':v).trim(); if(!s||s==='-')return null; const n=parseNum(s); return n; }
+function fmtRM(n){
+  if(n==null||isNaN(n)||n===0) return '—';
+  const a = Math.abs(n);
+  if(a>=1e9) return 'RM ' + (n/1e9).toFixed(2) + ' B';
+  if(a>=1e6) return 'RM ' + (n/1e6).toFixed(2) + ' J';
+  if(a>=1e3) return 'RM ' + (n/1e3).toFixed(1) + ' K';
+  return 'RM ' + n.toLocaleString('ms-MY');
+}
+function pct(a,b){ if(!b)return 0; return Math.round((a/b)*100); }
+
+function tierBadge(t){
+  const u = String(t||'').trim().toLowerCase();
+  if(u==='diamond') return '<span class="badge badge-diamond">💎 Diamond</span>';
+  if(u==='gold')    return '<span class="badge badge-gold">🥇 Gold</span>';
+  if(u==='silver')  return '<span class="badge badge-silver">🥈 Silver</span>';
+  return '<span class="badge badge-silver">'+(t||'—')+'</span>';
+}
+function tierKey(t){
+  const u = String(t||'').trim().toLowerCase();
+  if(u==='diamond')return'Diamond'; if(u==='gold')return'Gold'; if(u==='silver')return'Silver';
+  return 'Lain';
+}
+const TIER_COLORS = {Diamond:'#7c3aed', Gold:'#d97706', Silver:'#64748b', Lain:'#cbd5e1'};
+const TIER_ORDER = ['Diamond','Gold','Silver','Lain'];
+
+// ════════ CSV PARSER (kendalikan koma & newline dalam quote) ════════
+function parseCSV(text){
+  const rows=[]; let row=[], cur='', inQ=false;
+  text = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQ){
+      if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQ=true;
+      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else cur+=ch;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.length>1 && r.some(c=>String(c).trim()!==''));
+}
+
+// ════════ AUTO-DETECT KOLUM DARI HEADER ════════
+function detectColumns(headers){
+  const H = headers.map(h=>String(h||'').toUpperCase().replace(/[\s_\/\-]+/g,''));
+  // BE2023: kecualikan header yang mengandungi K5/K7 (data semasa & status)
+  function find(patterns, fb){
+    for(const p of patterns){ const i=H.findIndex(h=>h.includes(p)&&!h.includes('K5')&&!h.includes('K7')); if(i>=0)return i; }
+    return fb;
+  }
+  // K5/K7: mesti ada prefix berkenaan
+  function findK(prefix, patterns){
+    for(const p of patterns){ const i=H.findIndex(h=>h.includes(prefix)&&h.includes(p)); if(i>=0)return i; }
+    return -1;
+  }
+  C.EST_ID    = find(['ESTABLISHMENTID','ESTID'], FALLBACK.EST_ID);
+  C.SYARIKAT  = find(['SYARIKAT','MATCHING'], FALLBACK.SYARIKAT);
+  C.TIER      = find(['TIERFINAL','TIER'], FALLBACK.TIER);
+  C.PENYELIA  = find(['PENYELIA'], FALLBACK.PENYELIA);
+  C.ID_FE     = find(['IDFE','FEID'], FALLBACK.ID_FE);
+  C.ATAS_NAMA = find(['ATASNAMA'], FALLBACK.ATAS_NAMA);
+  C.FASA      = find(['FASA'], FALLBACK.FASA);
+  C.HASIL     = find(['HASILJUALAN','HASIL','JUALAN'], FALLBACK.HASIL);
+  C.BELANJA   = find(['BELANJA'], FALLBACK.BELANJA);
+  C.GAJI      = find(['GAJI'], FALLBACK.GAJI);
+  C.PEKERJA   = find(['PEKERJA'], FALLBACK.PEKERJA);
+  C.ASET      = find(['ASET'], FALLBACK.ASET);
+  C.SUBSEKTOR = find(['SUBSEKTOR'], FALLBACK.SUBSEKTOR);
+  C.K7_RESP   = findK('K7',['RESPON']);
+  C.K7_REKOD  = findK('K7',['REKOD']);
+  C.K5_HASIL   = findK('K5',['HASIL','PENDAPATAN']);
+  C.K5_BELANJA = findK('K5',['BELANJA']);
+  C.K5_GAJI    = findK('K5',['GAJI']);
+  C.K5_PEKERJA = findK('K5',['PEKERJA']);
+  C.K5_ASET    = findK('K5',['ASET']);
+}
+
+function rowToObj(r){
+  return {
+    id:      normID(r[C.EST_ID]),
+    idRaw:   String(r[C.EST_ID]||'').trim(),
+    syarikat:String(r[C.SYARIKAT]||'').trim(),
+    tier:    tierKey(r[C.TIER]),
+    penyelia:String(r[C.PENYELIA]||'').trim()||'—',
+    fe:      String(r[C.ID_FE]||'').trim()||'—',
+    atasNama:String(r[C.ATAS_NAMA]||'').trim()||'—',
+    fasa:    String(r[C.FASA]||'').trim()||'—',
+    hasil:   parseNum(r[C.HASIL]),
+    belanja: parseNum(r[C.BELANJA]),
+    gaji:    parseNum(r[C.GAJI]),
+    pekerja: parseNum(r[C.PEKERJA]),
+    aset:    parseNum(r[C.ASET]),
+    subsektor:String(r[C.SUBSEKTOR]||'').trim(),
+    resp:  C.K7_RESP >=0 ? (String(r[C.K7_RESP] ||'').trim()||'Tiada Data') : 'Tiada Kolum',
+    rekod: C.K7_REKOD>=0 ? (String(r[C.K7_REKOD]||'').trim()||'Tiada Data') : 'Tiada Kolum',
+    k5: {
+      hasil:   C.K5_HASIL  >=0 ? numOrNull(r[C.K5_HASIL])   : null,
+      belanja: C.K5_BELANJA>=0 ? numOrNull(r[C.K5_BELANJA]) : null,
+      gaji:    C.K5_GAJI   >=0 ? numOrNull(r[C.K5_GAJI])    : null,
+      pekerja: C.K5_PEKERJA>=0 ? numOrNull(r[C.K5_PEKERJA]) : null,
+      aset:    C.K5_ASET   >=0 ? numOrNull(r[C.K5_ASET])    : null
+    }
+  };
+}
+function k5Ada(r){ return METRIK_5.some(m=>r.k5[m.key]!=null); }
+
+// ════════ MUAT DATA ════════
+async function loadAll(){
+  const urlTier = document.getElementById('url-tier').value.trim();
+  const urlAdmin = document.getElementById('url-admin').value.trim();
+  if(!urlTier){ alert('Sila masukkan URL Sheet Database TIER.'); return; }
+  showLoading(true);
+  try{
+    const res = await fetch(urlTier);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const raw = parseCSV(await res.text());
+    if(raw.length<2) throw new Error('Tiada data dalam sheet TIER');
+    detectColumns(raw[0]);
+    allRows = raw.slice(1).map(rowToObj).filter(o=>o.id);
+
+    adminMap=null; adminMetrics=[];
+    if(urlAdmin && urlAdmin!==urlTier){
+      try{
+        const res2 = await fetch(urlAdmin);
+        if(res2.ok) buildAdminMap(parseCSV(await res2.text()));
+      }catch(e){ console.warn('Gagal muat sheet pentadbiran:', e); }
+    } else if(urlAdmin===urlTier && urlAdmin){
+      alert('Amaran: URL Data Pentadbiran sama dengan URL TIER. Sheet pentadbiran perlukan URL dengan gid= berbeza.');
+    }
+
+    initFilters();
+    renderAll(allRows);
+  }catch(e){
+    showLoading(false);
+    document.getElementById('no-data').style.display='block';
+    document.getElementById('dashboard').style.display='none';
+    document.getElementById('no-data').innerHTML =
+      '<div class="err-msg">⚠️ Gagal memuat data: '+e.message+'. Pastikan sheet telah di-publish sebagai CSV dan URL betul.</div>';
+    console.error(e);
+  }
+}
+
+// ════════ DATA PENTADBIRAN ════════
+function buildAdminMap(raw){
+  if(raw.length<2) return;
+  const headers = raw[0].map(h=>String(h||'').trim());
+  const H = headers.map(h=>h.toUpperCase().replace(/[\s_\/]+/g,''));
+  let idCol = H.findIndex(h=>h.includes('ESTABLISHMENTID')||h==='ESTID');
+  if(idCol<0) idCol = H.findIndex(h=>h.includes('ESTABLISHMENT')||h.includes('NEWSA')||h==='ID');
+  if(idCol<0) idCol = 0;
+
+  const METRIC_DEFS = [
+    {key:'hasil',   label:'Hasil/Jualan', pats:['HASIL','JUALAN','SALES','REVENUE','PEROLEHAN']},
+    {key:'belanja', label:'Belanja',      pats:['BELANJA','EXPENS','PERBELANJAAN']},
+    {key:'gaji',    label:'Gaji',         pats:['GAJI','SALAR','UPAH','WAGE']},
+    {key:'pekerja', label:'Pekerja',      pats:['PEKERJA','EMPLOY','WORKER']},
+    {key:'aset',    label:'Aset',         pats:['ASET','ASSET']}
+  ];
+  adminMetrics = [];
+  METRIC_DEFS.forEach(m=>{
+    const i = H.findIndex(h=>m.pats.some(p=>h.includes(p)));
+    if(i>=0) adminMetrics.push({key:m.key,label:m.label,col:i,header:headers[i]});
+  });
+
+  adminMap = new Map();
+  raw.slice(1).forEach(r=>{
+    const id = normID(r[idCol]); if(!id) return;
+    const o = {};
+    adminMetrics.forEach(m=>{ o[m.key] = parseNum(r[m.col]); });
+    adminMap.set(id,o);
+  });
+  window._adminHeaders = headers;
+}
+
+// ════════ DEMO ════════
+function loadDemo(){
+  showLoading(true);
+  setTimeout(()=>{
+    const pen=['nursyuzalawaty','ahmadmaliki','suhaina.wahab'];
+    const fes=['FESelangor233','FESelangor496','FESelangor236','FESelangor141','FESelangor232','FESelangor491','FESelangor147','FESelangor149','FESelangor142','FESelangor238','FESelangor234','FESelangor240'];
+    const nm=['Dipa Chellamuthu','Nursyuzalawaty binti Mohd Sohip','Ahmad Maliki bin Abdul Razik','Siti Suhaina binti Abdul Wahab','Ayu Alina Suria binti Abd Jalal','Mohd Khairul bin Mohd Nordin','Hazim bin Kamaruddin','Siti Mursyidah binti Mohd Salleh'];
+    const tiers=['Diamond','Gold','Gold','Gold','Silver','Silver'];
+    allRows=[]; adminMap=new Map();
+    adminMetrics=[{key:'hasil',label:'Hasil/Jualan'},{key:'pekerja',label:'Pekerja'},{key:'gaji',label:'Gaji'}];
+    for(let i=0;i<124;i++){
+      const t=tiers[i%tiers.length];
+      const hasil=(t==='Diamond'?5e9:t==='Gold'?8e8:1.2e8)*(0.5+Math.random());
+      const pekerja=Math.round((t==='Diamond'?900:t==='Gold'?250:60)*(0.5+Math.random()));
+      const adaK5=Math.random()>0.35; // ~65% sudah keyin K5
+      const respOpts=['11 - Respon Penuh','12 - Respon Separa','21 - Enggan','31 - Tidak Dapat Dikesan','50 - Selesai'];
+      const rekodOpts=['Aktif','Tutup Operasi','Pindah Alamat','Baharu'];
+      const o={ id:String(2000000+i), idRaw:String(2000000+i),
+        syarikat:'SYARIKAT DEMO '+(i+1)+' SDN. BHD.', tier:t,
+        penyelia:pen[i%3], fe:fes[i%fes.length], atasNama:nm[i%nm.length],
+        fasa:'Fasa '+(i%2===0?'3':'2'),
+        hasil:hasil, belanja:hasil*0.7, gaji:hasil*0.08,
+        pekerja:pekerja, aset:hasil*1.4, subsektor:i%2?'HARTANAH':'PERDAGANGAN BORONG & RUNCIT',
+        resp:respOpts[i%respOpts.length], rekod:rekodOpts[i%rekodOpts.length],
+        k5: adaK5 ? {
+          hasil:hasil*(0.7+Math.random()*0.8), belanja:hasil*0.7*(0.7+Math.random()*0.6),
+          gaji:hasil*0.08*(0.7+Math.random()*0.6), pekerja:Math.round(pekerja*(0.6+Math.random()*0.8)),
+          aset:hasil*1.4*(0.7+Math.random()*0.6)
+        } : {hasil:null,belanja:null,gaji:null,pekerja:null,aset:null} };
+      allRows.push(o);
+      adminMap.set(o.id,{ hasil:hasil*(0.6+Math.random()*0.9), pekerja:Math.round(pekerja*(0.5+Math.random())), gaji:hasil*0.08*(0.7+Math.random()*0.6) });
+    }
+    C.K7_RESP=99; C.K7_REKOD=99; C.K5_HASIL=99; C.K5_BELANJA=99; C.K5_GAJI=99; C.K5_PEKERJA=99; C.K5_ASET=99; // aktifkan seksyen dalam demo
+    initFilters();
+    renderAll(allRows);
+  },400);
+}
+
+function showLoading(v){ document.getElementById('loading-overlay').style.display=v?'flex':'none'; }
+
+// ════════ FILTER ════════
+function initFilters(){
+  function fill(id, vals){
+    const sel=document.getElementById(id);
+    const first=sel.options[0].outerHTML;
+    sel.innerHTML=first+[...new Set(vals)].sort().map(v=>'<option>'+v+'</option>').join('');
+  }
+  fill('f-tier', allRows.map(r=>r.tier));
+  fill('f-penyelia', allRows.map(r=>r.penyelia));
+  fill('f-fe', allRows.map(r=>r.fe));
+  fill('f-fasa', allRows.map(r=>r.fasa));
+  document.getElementById('filter-bar').style.display='flex';
+}
+
+function applyFilters(){
+  const t=document.getElementById('f-tier').value;
+  const p=document.getElementById('f-penyelia').value;
+  const f=document.getElementById('f-fe').value;
+  const fs=document.getElementById('f-fasa').value;
+  const rows=allRows.filter(r=>(!t||r.tier===t)&&(!p||r.penyelia===p)&&(!f||r.fe===f)&&(!fs||r.fasa===fs));
+  const lbl=[t,p,f,fs].filter(Boolean).join(' · ')||'Keseluruhan';
+  document.getElementById('pill-filter').textContent=lbl;
+  renderAll(rows,true);
+}
+
+// ════════ RENDER ════════
+function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+function renderAll(rows, keepFilters){
+  lastRows = rows;
+  if(!keepFilters) document.getElementById('pill-filter').textContent='Keseluruhan';
+  document.getElementById('last-updated').textContent=new Date().toLocaleString('ms-MY');
+  renderKPI(rows);
+  renderPenyelia(rows);
+  renderFE(rows);
+  renderTierChart(rows);
+  renderK7(rows);
+  renderPrinsip(rows);
+  renderTop10(rows);
+  renderPekerjaChart(rows);
+  renderCompare(rows);
+  renderMainTable(rows);
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('no-data').style.display='none';
+  showLoading(false);
+}
+
+function renderKPI(rows){
+  const d=rows.filter(r=>r.tier==='Diamond').length;
+  const g=rows.filter(r=>r.tier==='Gold').length;
+  const s=rows.filter(r=>r.tier==='Silver').length;
+  const tot=rows.length;
+  const totHasil=rows.reduce((a,r)=>a+r.hasil,0);
+  const totPekerja=rows.reduce((a,r)=>a+r.pekerja,0);
+  const k5n=rows.filter(k5Ada).length;
+  const kpis=[
+    {label:'Jumlah Pertubuhan', val:fmt(tot), cls:'c-blue', icon:'🏢'},
+    {label:'Diamond', val:fmt(d), cls:'c-diamond', icon:'💎', sub:pct(d,tot)+'% daripada jumlah'},
+    {label:'Gold', val:fmt(g), cls:'c-gold', icon:'🥇', sub:pct(g,tot)+'% daripada jumlah'},
+    {label:'Silver', val:fmt(s), cls:'c-silver', icon:'🥈', sub:pct(s,tot)+'% daripada jumlah'},
+    {label:'K5 Direkod (Data Semasa)', val:fmt(k5n), cls:'c-green', icon:'📝', sub:pct(k5n,tot)+'% daripada jumlah'},
+    {label:'Jumlah Hasil/Jualan (BE2023)', val:fmtRM(totHasil).replace('RM ',''), cls:'c-accent', icon:'💰', sub:'RM'},
+    {label:'Jumlah Pekerja (BE2023)', val:fmt(totPekerja), cls:'c-accent', icon:'👷'},
+  ];
+  document.getElementById('kpi-grid').innerHTML=kpis.map(k=>
+    '<div class="kpi-card '+k.cls+'"><div class="kpi-icon">'+k.icon+'</div><div class="kpi-label">'+k.label+'</div><div class="kpi-val">'+k.val+'</div>'+(k.sub?'<div class="kpi-sub">'+k.sub+'</div>':'')+'</div>'
+  ).join('');
+}
+
+function groupCount(rows, keyFn){
+  const m={};
+  rows.forEach(r=>{
+    const k=keyFn(r);
+    if(!m[k]) m[k]={Diamond:0,Gold:0,Silver:0,Lain:0,total:0};
+    m[k][r.tier]++; m[k].total++;
+  });
+  return m;
+}
+
+function renderPenyelia(rows){
+  const m=groupCount(rows,r=>r.penyelia);
+  const keys=Object.keys(m).sort((a,b)=>m[b].total-m[a].total);
+  document.getElementById('tbl-penyelia').innerHTML=
+    '<thead><tr><th>Penyelia</th><th class="num">💎</th><th class="num">🥇</th><th class="num">🥈</th><th class="num">Jumlah</th></tr></thead><tbody>'+
+    keys.map(k=>'<tr><td>'+k+'</td><td class="num">'+fmt(m[k].Diamond)+'</td><td class="num">'+fmt(m[k].Gold)+'</td><td class="num">'+fmt(m[k].Silver)+'</td><td class="num">'+fmt(m[k].total)+'</td></tr>').join('')+
+    '<tr class="total"><td>Jumlah</td><td class="num">'+fmt(rows.filter(r=>r.tier==='Diamond').length)+'</td><td class="num">'+fmt(rows.filter(r=>r.tier==='Gold').length)+'</td><td class="num">'+fmt(rows.filter(r=>r.tier==='Silver').length)+'</td><td class="num">'+fmt(rows.length)+'</td></tr></tbody>';
+
+  destroyChart('chart-penyelia');
+  charts['chart-penyelia']=new Chart(document.getElementById('chart-penyelia'),{
+    type:'bar',
+    data:{labels:keys,datasets:TIER_ORDER.filter(t=>t!=='Lain'||keys.some(k=>m[k].Lain)).map(t=>({
+      label:t,data:keys.map(k=>m[k][t]),backgroundColor:TIER_COLORS[t],borderRadius:4}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{family:"'Plus Jakarta Sans'",size:11}}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,ticks:{font:{size:10},precision:0}}}}
+  });
+}
+
+function renderFE(rows){
+  const m=groupCount(rows,r=>r.fe);
+  const keys=Object.keys(m).sort((a,b)=>m[b].total-m[a].total);
+  const penMap={};
+  rows.forEach(r=>{ if(!penMap[r.fe])penMap[r.fe]=r.penyelia; });
+  document.getElementById('tbl-fe').innerHTML=
+    '<thead><tr><th>ID FE</th><th>Penyelia</th><th class="num">💎</th><th class="num">🥇</th><th class="num">🥈</th><th class="num">Jumlah</th></tr></thead><tbody>'+
+    keys.map(k=>'<tr><td>'+k+'</td><td>'+penMap[k]+'</td><td class="num">'+fmt(m[k].Diamond)+'</td><td class="num">'+fmt(m[k].Gold)+'</td><td class="num">'+fmt(m[k].Silver)+'</td><td class="num">'+fmt(m[k].total)+'</td></tr>').join('')+'</tbody>';
+}
+
+function renderTierChart(rows){
+  const cnt=TIER_ORDER.map(t=>rows.filter(r=>r.tier===t).length);
+  const labels=TIER_ORDER.filter((t,i)=>cnt[i]>0);
+  const data=cnt.filter(c=>c>0);
+  destroyChart('chart-tier');
+  charts['chart-tier']=new Chart(document.getElementById('chart-tier'),{
+    type:'doughnut',
+    data:{labels:labels,datasets:[{data:data,backgroundColor:labels.map(l=>TIER_COLORS[l]),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:"'Plus Jakarta Sans'",size:11}}}}}
+  });
+}
+
+function renderPrinsip(rows){
+  const P=[['hasil','HASIL/JUALAN'],['belanja','BELANJA'],['gaji','GAJI'],['pekerja','PEKERJA'],['aset','ASET']];
+  function agg(sub){ const o={}; P.forEach(([k])=>o[k]=sub.reduce((a,r)=>a+r[k],0)); return o; }
+  const byTier=TIER_ORDER.map(t=>({t,sub:rows.filter(r=>r.tier===t)})).filter(x=>x.sub.length);
+  const tot=agg(rows);
+  document.getElementById('tbl-prinsip').innerHTML=
+    '<thead><tr><th>Tier</th><th class="num">Bil</th>'+P.map(([k,l])=>'<th class="num">'+l+'</th>').join('')+'</tr></thead><tbody>'+
+    byTier.map(({t,sub})=>{
+      const a=agg(sub);
+      return '<tr><td>'+tierBadge(t)+'</td><td class="num">'+fmt(sub.length)+'</td>'+
+        P.map(([k])=>'<td class="num">'+(k==='pekerja'?fmt(a[k]):fmtRM(a[k]))+'</td>').join('')+'</tr>';
+    }).join('')+
+    '<tr class="total"><td>Jumlah</td><td class="num">'+fmt(rows.length)+'</td>'+
+    P.map(([k])=>'<td class="num">'+(k==='pekerja'?fmt(tot[k]):fmtRM(tot[k]))+'</td>').join('')+'</tr></tbody>';
+}
+
+function renderTop10(rows){
+  const top=[...rows].sort((a,b)=>b.hasil-a.hasil).slice(0,10);
+  destroyChart('chart-top10');
+  charts['chart-top10']=new Chart(document.getElementById('chart-top10'),{
+    type:'bar',
+    data:{labels:top.map(r=>r.syarikat.length>28?r.syarikat.slice(0,26)+'…':r.syarikat),
+      datasets:[{label:'Hasil/Jualan',data:top.map(r=>r.hasil),
+        backgroundColor:top.map(r=>TIER_COLORS[r.tier]),borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtRM(c.raw)}}},
+      scales:{x:{ticks:{font:{size:9},callback:v=>fmtRM(v)},beginAtZero:true},y:{ticks:{font:{size:10}}}}}
+  });
+}
+
+function renderPekerjaChart(rows){
+  const m={};
+  rows.forEach(r=>{ if(!m[r.tier])m[r.tier]=0; m[r.tier]+=r.pekerja; });
+  const labels=TIER_ORDER.filter(t=>m[t]);
+  destroyChart('chart-pekerja');
+  charts['chart-pekerja']=new Chart(document.getElementById('chart-pekerja'),{
+    type:'bar',
+    data:{labels:labels,datasets:[{label:'Pekerja BE2023',data:labels.map(t=>m[t]),
+      backgroundColor:labels.map(t=>TIER_COLORS[t]),borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{grid:{display:false}}}}
+  });
+}
+
+// ════════ K7 STATUS ════════
+function renderK7(rows){
+  const sec=document.getElementById('k7-section');
+  if(C.K7_RESP<0 && C.K7_REKOD<0){
+    sec.innerHTML='<div class="info-msg">ℹ️ Kolum <strong>K7-Status Response</strong> / <strong>K7-Status Rekod</strong> tidak ditemui dalam sheet. Pastikan header kolum mengandungi "K7" dan "Response"/"Rekod".</div>';
+    return;
+  }
+  const COLORS=['#2563eb','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#64748b','#ec4899','#84cc16'];
+  function statusBlock(field, chartId, tblId){
+    const m={};
+    rows.forEach(r=>{ const v=r[field]; m[v]=(m[v]||0)+1; });
+    const entries=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    destroyChart(chartId);
+    charts[chartId]=new Chart(document.getElementById(chartId),{
+      type: chartId==='chart-resp'?'pie':'doughnut',
+      data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:COLORS,borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:"'Plus Jakarta Sans'",size:10}}}}}
+    });
+    const tot=rows.length;
+    document.getElementById(tblId).innerHTML=
+      '<thead><tr><th>Status</th><th class="num">Bil</th><th class="num">%</th></tr></thead><tbody>'+
+      entries.map(([k,v])=>'<tr><td>'+k+'</td><td class="num">'+fmt(v)+'</td><td class="num">'+pct(v,tot)+'%</td></tr>').join('')+'</tbody>';
+  }
+  statusBlock('resp','chart-resp','tbl-resp');
+  statusBlock('rekod','chart-rekod','tbl-rekod');
+}
+
+// ════════ PERBANDINGAN 3 HALA: K5 vs ADMIN vs BE2023 ════════
+function bezaBadge(p){
+  if(p==null) return '<span class="badge badge-silver">—</span>';
+  const a=Math.abs(p);
+  const s=(p>0?'+':'')+p.toFixed(0)+'%';
+  if(a>=50) return '<span class="badge badge-red">'+s+'</span>';
+  if(a>=20) return '<span class="badge badge-amber">'+s+'</span>';
+  return '<span class="badge badge-green">'+s+'</span>';
+}
+
+function renderCompare(rows){
+  const sec=document.getElementById('admin-section');
+  const adaK5 = METRIK_5.some(m=>C['K5_'+m.key.toUpperCase()]>=0);
+  const adaAdmin = adminMap && adminMap.size && adminMetrics.length;
+
+  if(!adaK5 && !adaAdmin){
+    sec.innerHTML='<div class="info-msg">ℹ️ Tiada kolum K5 dikesan dan sheet pentadbiran belum dimuat. Perbandingan tidak dapat dipaparkan.</div>';
+    return;
+  }
+
+  const matched=rows.filter(r=>adaAdmin&&adminMap.has(r.id));
+  const k5n=rows.filter(k5Ada).length;
+
+  // ── Jadual agregat: setiap metrik, jumlah K5 / Admin / BE2023 (atas set yang ada K5) ──
+  let aggHTML='<thead><tr><th>Metrik</th><th class="num">Bil K5 Ada</th><th class="num">K5 Semasa</th><th class="num">Pentadbiran*</th><th class="num">BE2023*</th><th class="num">Beza K5↔Admin</th><th class="num">Beza K5↔BE2023</th></tr></thead><tbody>';
+  METRIK_5.forEach(m=>{
+    const sub=rows.filter(r=>r.k5[m.key]!=null);
+    const n=sub.length;
+    const sK5=sub.reduce((a,r)=>a+r.k5[m.key],0);
+    const sBE=sub.reduce((a,r)=>a+r[m.key],0);
+    const adminHas=adaAdmin&&adminMetrics.some(x=>x.key===m.key);
+    const subA=adminHas?sub.filter(r=>adminMap.has(r.id)):[];
+    const sAD=subA.reduce((a,r)=>a+(adminMap.get(r.id)[m.key]||0),0);
+    const fmtV=m.key==='pekerja'?fmt:fmtRM;
+    const pAD=(adminHas&&sAD)?((sK5-sAD)/sAD)*100:null;
+    const pBE=sBE?((sK5-sBE)/sBE)*100:null;
+    aggHTML+='<tr><td><strong>'+m.label+'</strong></td><td class="num">'+fmt(n)+'</td><td class="num">'+(n?fmtV(sK5):'—')+'</td><td class="num">'+(adminHas&&subA.length?fmtV(sAD):'—')+'</td><td class="num">'+(n?fmtV(sBE):'—')+'</td><td class="num">'+bezaBadge(pAD)+'</td><td class="num">'+bezaBadge(pBE)+'</td></tr>';
+  });
+  aggHTML+='</tbody>';
+
+  // ── Jadual per pertubuhan untuk metrik dipilih ──
+  const adminHasSel=adaAdmin&&adminMetrics.some(x=>x.key===compareMetric);
+  const selLabel=METRIK_5.find(m=>m.key===compareMetric).label;
+  const fmtSel=compareMetric==='pekerja'?fmt:fmtRM;
+  const detail=rows.map(r=>{
+    const k5v=r.k5[compareMetric];
+    const bev=r[compareMetric];
+    const adv=adminHasSel&&adminMap.has(r.id)?adminMap.get(r.id)[compareMetric]:null;
+    const pBE=(k5v!=null&&bev)?((k5v-bev)/bev)*100:null;
+    const pAD=(k5v!=null&&adv)?((k5v-adv)/adv)*100:null;
+    return {r,k5v,bev,adv,pBE,pAD,sortKey:pBE!=null?Math.abs(pBE):-1};
+  }).sort((a,b)=>b.sortKey-a.sortKey);
+
+  const detailHTML=detail.map(d=>
+    '<tr><td>'+d.r.idRaw+'</td><td>'+(d.r.syarikat.length>32?d.r.syarikat.slice(0,30)+'…':d.r.syarikat)+'</td><td>'+tierBadge(d.r.tier)+'</td>'+
+    '<td class="num">'+(d.k5v!=null?fmtSel(d.k5v):'<span class="badge badge-silver">Belum</span>')+'</td>'+
+    '<td class="num">'+(d.adv!=null?fmtSel(d.adv):'—')+'</td>'+
+    '<td class="num">'+fmtSel(d.bev)+'</td>'+
+    '<td class="num">'+bezaBadge(d.pAD)+'</td>'+
+    '<td class="num">'+bezaBadge(d.pBE)+'</td></tr>'
+  ).join('');
+
+  let big=0; detail.forEach(d=>{ if(d.pBE!=null&&Math.abs(d.pBE)>=20)big++; });
+
+  sec.innerHTML=
+    '<div class="kpi-grid" style="margin-bottom:20px">'+
+      '<div class="kpi-card c-green"><div class="kpi-label">K5 Direkod</div><div class="kpi-val">'+fmt(k5n)+'</div><div class="kpi-sub">'+pct(k5n,rows.length)+'% daripada '+fmt(rows.length)+' pertubuhan</div></div>'+
+      '<div class="kpi-card c-blue"><div class="kpi-label">Dipadan Pentadbiran</div><div class="kpi-val">'+(adaAdmin?fmt(matched.length):'—')+'</div><div class="kpi-sub">'+(adaAdmin?pct(matched.length,rows.length)+'% via ESTABLISHMENT_ID':'Sheet pentadbiran belum dimuat')+'</div></div>'+
+      '<div class="kpi-card c-gold"><div class="kpi-label">Beza K5↔BE2023 ≥ 20% ('+selLabel+')</div><div class="kpi-val">'+fmt(big)+'</div><div class="kpi-sub">Perlu semakan lanjut</div></div>'+
+    '</div>'+
+    '<div class="card"><div class="card-head">📊 Agregat Mengikut Metrik <span style="font-weight:400;font-size:.72rem;color:var(--muted)">*Pentadbiran &amp; BE2023 dijumlah atas set pertubuhan yang sama (K5 ada) supaya perbandingan adil</span></div>'+
+    '<div class="card-body" style="overflow-x:auto"><table class="dash-table">'+aggHTML+'</table></div></div>'+
+    '<div class="card"><div class="card-head">⚖️ Per Pertubuhan — '+
+      '<select id="sel-metric" onchange="setCompareMetric(this.value)" style="border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-family:var(--font);font-size:.78rem;margin-left:6px">'+
+      METRIK_5.map(m=>'<option value="'+m.key+'"'+(m.key===compareMetric?' selected':'')+'>'+m.label+'</option>').join('')+
+      '</select>'+
+      '<span style="font-weight:400;font-size:.72rem;color:var(--muted);margin-left:8px">(disusun beza besar dahulu · 🟢 &lt;20% · 🟡 20–49% · 🔴 ≥50%)</span></div>'+
+    '<div class="card-body" style="overflow-x:auto;max-height:480px;overflow-y:auto">'+
+    '<table class="dash-table"><thead><tr><th>EST ID</th><th>Syarikat</th><th>Tier</th>'+
+    '<th class="num">K5 Semasa</th><th class="num">Pentadbiran</th><th class="num">BE2023</th>'+
+    '<th class="num">Beza K5↔Admin</th><th class="num">Beza K5↔BE2023</th></tr></thead><tbody>'+detailHTML+'</tbody></table></div></div>';
+}
+
+function setCompareMetric(v){ compareMetric=v; renderCompare(lastRows); }
+
+// ════════ JADUAL UTAMA ════════
+function renderMainTable(rows){
+  document.getElementById('tier-tbody').innerHTML=rows.map(r=>
+    '<tr><td>'+r.idRaw+'</td><td>'+r.syarikat+'</td><td>'+tierBadge(r.tier)+'</td><td>'+r.penyelia+'</td><td>'+r.fe+'</td><td>'+r.atasNama+'</td><td>'+r.fasa+'</td>'+
+    '<td>'+r.resp+'</td><td>'+r.rekod+'</td>'+
+    '<td>'+fmtRM(r.hasil)+'</td><td>'+fmtRM(r.belanja)+'</td><td>'+fmtRM(r.gaji)+'</td><td>'+fmt(r.pekerja)+'</td><td>'+fmtRM(r.aset)+'</td></tr>'
+  ).join('');
+
+  if(window.$ && $.fn && $.fn.DataTable){
+    if(dtTable){ dtTable.destroy(); dtTable=null; }
+    dtTable=$('#tier-table').DataTable({
+      dom:'Bfrtip',
+      buttons:[{extend:'csv',text:'⬇ Export CSV',filename:'analisis_tier_be2026'}],
+      pageLength:15,
+      language:{search:'Cari:',paginate:{previous:'‹',next:'›'},
+        info:'Paparan _START_–_END_ daripada _TOTAL_ rekod',
+        lengthMenu:'Papar _MENU_ rekod',zeroRecords:'Tiada rekod dijumpai',
+        infoEmpty:'Tiada rekod',infoFiltered:'(ditapis daripada _MAX_ jumlah rekod)'},
+      order:[[9,'desc']],
+      scrollX:true
+    });
+  }
+}
+</script>
+</body>
+</html>
