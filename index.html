@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Analisis Pertubuhan TIER – BE2026 | DOSM SELANGOR (UHH)</title>
+<title>Analisis Pertubuhan TIER – BE2026 | BPAH/UHH</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -147,15 +147,12 @@ table#tier-table tr:hover td{background:#f5f8ff}
 </div>
 
 <div class="ctrl-bar">
-  <div class="ctrl-row">
-    <label>🔗 Sheet Database TIER (CSV)</label>
-    <input type="text" id="url-tier" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?output=csv">
-  </div>
-  <div class="ctrl-row">
-    <label>🔗 Sheet Data Pentadbiran (CSV)</label>
-    <input type="text" id="url-admin" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?gid=1470316366&amp;single=true&amp;output=csv">
-    <button class="btn" onclick="loadAll()">⟳ Muat Data</button>
-    <button class="btn btn-ghost" onclick="loadDemo()">📊 Demo Data</button>
+  <div class="ctrl-row" style="justify-content:space-between">
+    <span style="font-size:.78rem;color:var(--muted)">📡 Sumber data: Google Sheet <strong>Database TIER</strong> &amp; <strong>Data Pentadbiran</strong> (dimuat automatik)</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="loadAll()">⟳ Muat Semula</button>
+      <button class="btn btn-ghost" onclick="loadDemo()">📊 Demo Data</button>
+    </div>
   </div>
 </div>
 
@@ -390,13 +387,13 @@ function rowToObj(r){
 function k5Ada(r){ return METRIK_5.some(m=>r.k5[m.key]!=null); }
 
 // ════════ MUAT DATA ════════
+const URL_TIER  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?gid=1886414878&single=true&output=csv';
+const URL_ADMIN = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSO3Q16SCccl0GiyBLPj60eq4oXKGK0UAyU3pU2MTL50Y6r5zOTOalET6s3BfQSIUo0Cz4JIo5aylYT/pub?gid=1470316366&single=true&output=csv';
+
 async function loadAll(){
-  const urlTier = document.getElementById('url-tier').value.trim();
-  const urlAdmin = document.getElementById('url-admin').value.trim();
-  if(!urlTier){ alert('Sila masukkan URL Sheet Database TIER.'); return; }
   showLoading(true);
   try{
-    const res = await fetch(urlTier);
+    const res = await fetch(URL_TIER);
     if(!res.ok) throw new Error('HTTP '+res.status);
     const raw = parseCSV(await res.text());
     if(raw.length<2) throw new Error('Tiada data dalam sheet TIER');
@@ -404,14 +401,10 @@ async function loadAll(){
     allRows = raw.slice(1).map(rowToObj).filter(o=>o.id);
 
     adminMap=null; adminMetrics=[];
-    if(urlAdmin && urlAdmin!==urlTier){
-      try{
-        const res2 = await fetch(urlAdmin);
-        if(res2.ok) buildAdminMap(parseCSV(await res2.text()));
-      }catch(e){ console.warn('Gagal muat sheet pentadbiran:', e); }
-    } else if(urlAdmin===urlTier && urlAdmin){
-      alert('Amaran: URL Data Pentadbiran sama dengan URL TIER. Sheet pentadbiran perlukan URL dengan gid= berbeza.');
-    }
+    try{
+      const res2 = await fetch(URL_ADMIN);
+      if(res2.ok) buildAdminMap(parseCSV(await res2.text()));
+    }catch(e){ console.warn('Gagal muat sheet pentadbiran:', e); }
 
     initFilters();
     renderAll(allRows);
@@ -420,7 +413,7 @@ async function loadAll(){
     document.getElementById('no-data').style.display='block';
     document.getElementById('dashboard').style.display='none';
     document.getElementById('no-data').innerHTML =
-      '<div class="err-msg">⚠️ Gagal memuat data: '+e.message+'. Pastikan sheet telah di-publish sebagai CSV dan URL betul.</div>';
+      '<div class="err-msg">⚠️ Gagal memuat data: '+e.message+'. Pastikan sheet telah di-publish sebagai CSV dan sambungan internet aktif.</div>';
     console.error(e);
   }
 }
@@ -496,6 +489,9 @@ function loadDemo(){
 }
 
 function showLoading(v){ document.getElementById('loading-overlay').style.display=v?'flex':'none'; }
+
+// Auto-muat bila halaman dibuka
+window.addEventListener('load', ()=>{ try{ loadAll(); }catch(e){ console.error(e); } });
 
 // ════════ FILTER ════════
 function initFilters(){
