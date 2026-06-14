@@ -129,6 +129,21 @@ table#tier-table tr:hover td{background:#f5f8ff}
 </head>
 <body>
 
+<!-- PASSWORD GATE -->
+<div id="gate" style="position:fixed;inset:0;z-index:10000;background:linear-gradient(135deg,#0a1628 0%,#0f2044 50%,#112255 100%);display:flex;align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:#fff;border-radius:16px;padding:36px 40px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center">
+    <div style="font-size:2.2rem;margin-bottom:10px">🔒</div>
+    <div style="font-weight:800;font-size:1.05rem;color:#0f2044;letter-spacing:.02em">ANALISIS PERTUBUHAN TIER</div>
+    <div style="font-size:.75rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin:4px 0 20px">BE2026 · BPAH/UHH · Akses Terhad</div>
+    <input type="password" id="gate-pass" placeholder="Kata laluan" autocomplete="off"
+      onkeydown="if(event.key==='Enter')tryUnlock()"
+      style="width:100%;border:1px solid #dde4f0;border-radius:9px;padding:11px 14px;font-size:.9rem;font-family:'Plus Jakarta Sans',sans-serif;text-align:center;letter-spacing:.1em">
+    <div id="gate-err" style="display:none;color:#ef4444;font-size:.75rem;margin-top:10px;font-weight:600">Kata laluan salah. Cuba lagi.</div>
+    <button onclick="tryUnlock()"
+      style="width:100%;margin-top:14px;background:#2563eb;color:#fff;border:none;border-radius:9px;padding:11px;font-size:.88rem;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer">Masuk</button>
+  </div>
+</div>
+
 <div id="loading-overlay" style="display:none">
   <div class="spinner"></div>
   <p>Memuatkan data...</p>
@@ -238,7 +253,12 @@ table#tier-table tr:hover td{background:#f5f8ff}
 
   <div class="sec-title"><h2>Senarai Penuh Pertubuhan</h2><div class="sec-divider"></div></div>
   <div class="card">
-    <div class="card-head">🏢 Senarai Pertubuhan TIER</div>
+    <div class="card-head">🏢 Senarai Pertubuhan TIER
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-weight:400">
+        <select id="f-tbl-resp" onchange="filterMainTable()" style="border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-family:var(--font);font-size:.76rem"><option value="">Semua K7 Status</option></select>
+        <select id="f-tbl-rekod" onchange="filterMainTable()" style="border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-family:var(--font);font-size:.76rem"><option value="">Semua K7 Rekod</option></select>
+      </span>
+    </div>
     <div class="card-body" style="overflow-x:auto">
       <table id="tier-table" class="display" style="width:100%">
         <thead><tr>
@@ -599,8 +619,33 @@ function loadDemo(){
 
 function showLoading(v){ document.getElementById('loading-overlay').style.display=v?'flex':'none'; }
 
-// Auto-muat bila halaman dibuka
-window.addEventListener('load', ()=>{ try{ loadAll(); }catch(e){ console.error(e); } });
+// ════════ KAWALAN AKSES ════════
+const PASS_HASH = 5777457859756829;
+function cyrb53(str, seed=0){let h1=0xdeadbeef^seed,h2=0x41c6ce57^seed;for(let i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507);h1^=Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507);h2^=Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);}
+function isUnlocked(){ try{ return sessionStorage.getItem('tier_dash_unlock')==='1'; }catch(e){ return false; } }
+function tryUnlock(){
+  const v=document.getElementById('gate-pass').value;
+  if(cyrb53(v)===PASS_HASH){
+    try{ sessionStorage.setItem('tier_dash_unlock','1'); }catch(e){}
+    document.getElementById('gate').style.display='none';
+    try{ loadAll(); }catch(e){ console.error(e); }
+  } else {
+    document.getElementById('gate-err').style.display='block';
+    document.getElementById('gate-pass').value='';
+    document.getElementById('gate-pass').focus();
+  }
+}
+
+// Auto-muat bila halaman dibuka (selepas kunci dibuka)
+window.addEventListener('load', ()=>{
+  if(isUnlocked()){
+    document.getElementById('gate').style.display='none';
+    try{ loadAll(); }catch(e){ console.error(e); }
+  } else {
+    document.getElementById('gate').style.display='flex';
+    const inp=document.getElementById('gate-pass'); if(inp) inp.focus();
+  }
+});
 
 // ════════ FILTER ════════
 function initFilters(){
@@ -921,12 +966,32 @@ function renderCompare(rows){
 }
 
 // ════════ JADUAL UTAMA ════════
+function filterMainTable(){
+  if(!dtTable) return;
+  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const rv=document.getElementById('f-tbl-resp').value;
+  const kv=document.getElementById('f-tbl-rekod').value;
+  dtTable.column(7).search(rv?'^'+esc(rv)+'$':'',true,false);
+  dtTable.column(8).search(kv?'^'+esc(kv)+'$':'',true,false);
+  dtTable.draw();
+}
+
 function renderMainTable(rows){
   document.getElementById('tier-tbody').innerHTML=rows.map(r=>
     '<tr><td>'+r.idRaw+'</td><td>'+r.syarikat+'</td><td>'+tierBadge(r.tier)+'</td><td>'+r.penyelia+'</td><td>'+r.fe+'</td><td>'+r.atasNama+'</td><td>'+r.fasa+'</td>'+
     '<td>'+r.resp+'</td><td>'+r.rekod+'</td>'+
     '<td>'+fmtRM(r.hasil)+'</td><td>'+fmtRM(r.belanja)+'</td><td>'+fmtRM(r.gaji)+'</td><td>'+fmt(r.pekerja)+'</td><td>'+fmtRM(r.aset)+'</td></tr>'
   ).join('');
+
+  // Isi pilihan filter K7 (kekalkan pilihan semasa jika masih wujud)
+  function fillSel(id, vals){
+    const sel=document.getElementById(id); if(!sel) return;
+    const cur=sel.value;
+    const first=sel.options[0].outerHTML;
+    sel.innerHTML=first+[...new Set(vals)].sort().map(v=>'<option'+(v===cur?' selected':'')+'>'+v+'</option>').join('');
+  }
+  fillSel('f-tbl-resp', rows.map(r=>r.resp));
+  fillSel('f-tbl-rekod', rows.map(r=>r.rekod));
 
   if(window.$ && $.fn && $.fn.DataTable){
     if(dtTable){ dtTable.destroy(); dtTable=null; }
@@ -941,6 +1006,7 @@ function renderMainTable(rows){
       order:[[9,'desc']],
       scrollX:true
     });
+    filterMainTable(); // kekalkan tapisan K7 selepas re-init
   }
 }
 </script>
